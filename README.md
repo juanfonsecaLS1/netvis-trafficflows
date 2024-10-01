@@ -1,6 +1,11 @@
 # Visualisation of Traffic Flows
 Juan P. Fonseca-Zamora
 
+*This is a quick demo on visualising traffic volumes on the road network
+that was prepared for the [Network Visualisation
+Hackathon](https://github.com/Robinlovelace/netvishack). The aim is to
+visualise the typical daily flows of an undirected network.*
+
 ``` r
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 if (!require("remotes")) install.packages("remotes")
@@ -21,7 +26,8 @@ sapply(pkgs, require, character.only = TRUE)
 ## Loading the data
 
 We will be using some traffic estimates for Edinburgh that where
-produced with a GLM.
+produced with a GLM. The spatial data correspond to [OS Open
+Roads](https://www.ordnancesurvey.co.uk/products/os-open-roads).
 
 ``` r
 sf_net <- st_read("preliminary_traffic_estimates_edinburgh.gpkg")
@@ -42,21 +48,24 @@ plot(sf_net["geom"])
 
 ![](README_files/figure-commonmark/unnamed-chunk-2-1.png)
 
-Let’s clip the `sf` using the `zonebuilder` package
+The original file covers a wide area. Let’s clip the `sf` using the
+`zonebuilder` package to focus on Edinburgh.
 
 ``` r
-bounds <- zb_zone("Edinburgh",n_circles = 4) |> st_transform(27700)
+bounds <- zb_zone("Edinburgh",n_circles = 4) |>
+  st_transform(27700) # From Pseudo-mercator to Birtish Grid
 
-edinburgh_AADT <- sf_net[bounds,]
+edinburgh_AADT <- sf_net[bounds,] # Clipping
 
-plot(edinburgh_AADT["geom"])
+plot(edinburgh_AADT["geom"]) # A basic visualisation
 ```
 
 ![](README_files/figure-commonmark/net-clipping-1.png)
 
 ## Plotting the traffic flows
 
-Let’s use base R to plot the traffic flows
+We are interested in the typical flows, in this case, Annaul Average
+Daily Flows (AADF). For that purpose, let’s use base R to plot them.
 
 ``` r
 plot(edinburgh_AADT["pred_flows"])
@@ -64,8 +73,12 @@ plot(edinburgh_AADT["pred_flows"])
 
 ![](README_files/figure-commonmark/unnamed-chunk-4-1.png)
 
-By using `tmap` or `ggplot` we can easily manipulate some of the
-elements of the visualisation
+This is fine as an initial visualisation. However, we might be able to
+improve it if we consider other elements of the road network. For
+example, road class.
+
+By using `tmap` or `ggplot,` we can easily tune some elements of the
+visualisation. We are going to use `ggplog` in this case.
 
 ``` r
 ggplot(edinburgh_AADT)+
@@ -74,7 +87,7 @@ ggplot(edinburgh_AADT)+
 
 ![](README_files/figure-commonmark/unnamed-chunk-5-1.png)
 
-Let’s eliminate the background
+We can make the visualisation tidier if we eliminate the background.
 
 ``` r
 ggplot(edinburgh_AADT)+
@@ -84,7 +97,8 @@ ggplot(edinburgh_AADT)+
 
 ![](README_files/figure-commonmark/unnamed-chunk-6-1.png)
 
-We can use a binned scale for the flows
+The continuous scale for the flows is OK, but we could also use a binned
+scale to better differentiate the traffic levels on different roads.
 
 ``` r
 ggplot(edinburgh_AADT)+
@@ -106,10 +120,12 @@ ggplot(edinburgh_AADT)+
 
 ![](README_files/figure-commonmark/unnamed-chunk-8-1.png)
 
-Let’s use some other attributes of the network to improve the visuals.
-For example, the road hierarchy to show the relative importance of the
-road in the network. High volumes are expected to be present on major
-roads.
+Let’s bring other element to improve the visualisation. Since roads are
+not equally important in the road network, it would make sense to show
+them using their relative importance (e.g. high volumes are expected to
+be present on major roads). As a starting point, we can use the road
+class. The following line of code extracts the road classes in the
+dataset.
 
 ``` r
 edinburgh_AADT |> pull(road_classification) |> unique()
@@ -119,8 +135,8 @@ edinburgh_AADT |> pull(road_classification) |> unique()
     [4] "Unknown"               "B Road"                "A Road"               
     [7] "Motorway"             
 
-We can create a factor for the road classification and use it to modify
-the line width
+We can create an ordered factor for the road classification and use it
+to modify the line width.
 
 ``` r
 roadclass_levels <- c("Not Classified",
@@ -143,7 +159,7 @@ edinburgh_AADT |>
 
 ![](README_files/figure-commonmark/unnamed-chunk-10-1.png)
 
-Improving the definition of the line-width scale
+We can fine-tune the line-width scale to get a better output.
 
 ``` r
 edinburgh_AADT |> 
@@ -159,7 +175,8 @@ edinburgh_AADT |>
 
 ![](README_files/figure-commonmark/unnamed-chunk-11-1.png)
 
-We can play with the `alpha` too
+By changing the `alpha` of the different road classes, we can get a
+better result in areas with high road density e.g. residential areas.
 
 ``` r
 edinburgh_AADT |> 
@@ -177,8 +194,11 @@ edinburgh_AADT |>
 
 ![](README_files/figure-commonmark/unnamed-chunk-12-1.png)
 
-The binning for the flows can be improved. Let’s try exploring the
-distribution of the values and defining breaks for the quantiles
+The binning for the flows can also be improved. Let’s try exploring the
+distribution of the values and defining some arbitrary breaks. You can
+always use common binning algorithms as [Jenks natural
+breaks](https://search.r-project.org/CRAN/refmans/BAMMtools/html/getJenksBreaks.html).
+Some of them are already built-in in `tmap`.
 
 ``` r
 edinburgh_AADT |> 
@@ -214,5 +234,10 @@ edinburgh_AADT |>
 
 ## To consider
 
-- directed networks are trickier (overlapping edges/links)
-- …
+- road hierarchy do not always explain the levels of flow e.g. rat-runs
+  or poorly connected corridors
+- directed networks are trickier:
+  - overlapping edges/links
+  - a lot more links
+- Temporal component (Daily profiles)
+- OD flows (Where trips go from/to)
